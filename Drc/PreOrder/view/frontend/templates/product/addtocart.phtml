@@ -1,0 +1,193 @@
+<?php
+/**
+ * Copyright © 2016 Magento. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+
+// @codingStandardsIgnoreFile
+
+/** @var $block \Magento\Catalog\Block\Product\View */
+?>
+<?php $_product = $block->getProduct(); 
+$id = $_product->getId();
+
+$likes = $_product->getData("valutation_product_likes");
+$isValutationProduct = false;
+//retrieving product type
+$type = $_product->getTypeId();
+if(is_array($type)) {
+	foreach($type as $it) {
+		if(strcmp($it, "valutation_product") == 0)
+			$isValutationProduct = true;
+	}
+}
+else {
+	if(strcmp($type, "valutation_product") == 0)
+		$isValutationProduct = true;
+}
+//$categorie = $_product->getCategoryCollection();
+//foreach ($categorie as  $categoria) {
+//  $idCategoria = $categoria->getId();
+//  $categoryObject = $objectManager->create("Magento\Catalog\Model\Category")->load($idCategoria);
+//  if(strcmp($categoryObject->getName(), "Valutation Products") == 0) {
+//    $isValutationProduct = true;
+//  }
+//}
+
+$productStock = $block->getStockItem($id);
+$backorderStatus = $productStock->getBackorders();
+?>
+<?php $buttonTitle = __('Add to Cart'); ?>
+<?php $type = $_product->getTypeId(); 
+$flag=false;
+if ($type == 'grouped') {
+    $associatedProducts =$_product->getTypeInstance()->getAssociatedProducts($_product);
+    foreach ($associatedProducts as $_item){
+        $id = $_item->getEntityId(); 
+        $productStock = $block->getStockItem($id);
+        $backorderStatus = $productStock->getBackorders();
+        if (($backorderStatus == '4') && (!$_item->IsSalable())) {
+           $flag=true;
+        }
+    } 
+   
+}
+$active=$this->helper('Drc\PreOrder\Helper\Check')->checkEnable();
+
+?>
+
+
+<!-- if it's a valutation product -->
+<?php if($isValutationProduct): ?>
+  <?php
+        $buttonTitle = __("Like");
+   ?>
+   <div class="stock available">
+       <span><?=$likes?> Likes</span>
+   </div><br>
+   <div class="box-tocart">
+       <div class="fieldset">
+         <div class="actions">
+             <button type="submit"
+                     title="<?php /* @escapeNotVerified */ echo $buttonTitle ?>"
+                     class="action primary tocart"
+                     id="product-addtocart-button">
+                 <span><?php /* @escapeNotVerified */ echo $buttonTitle ?></span>
+             </button>
+             <?php echo $block->getChildHtml('', true) ?>
+         </div>
+       </div>
+   </div>
+<?php else: ?>
+
+<?php if (($_product->isSaleable()) || (($active==1) && (($flag==true) || ((!$_product->isSaleable()) && ($backorderStatus=='4') )))): ?>
+<div class="box-tocart">
+    <div class="fieldset">
+        <?php if ($block->shouldRenderQuantity()): ?>
+        <div class="field qty">
+            <label class="label" for="qty"><span><?php /* @escapeNotVerified */ echo __('Qty') ?></span></label>
+            <div class="control">
+                <input type="number"
+                       name="qty"
+                       id="qty"
+                       maxlength="12"
+                       value="<?php /* @escapeNotVerified */ echo $block->getProductDefaultQty() * 1 ?>"
+                       title="<?php /* @escapeNotVerified */ echo __('Qty') ?>" class="input-text qty"
+                       data-validate="<?php echo $block->escapeHtml(json_encode($block->getQuantityValidators())) ?>"
+                       />
+            </div>
+        </div>
+        <?php endif; ?>
+        <?php
+        if ($type == 'grouped')  {
+            $buttonTitle = __('Add to Cart');
+        }
+        /*elseif($type == 'downloadable' ){
+            $buttonTitle = __('Add to Cart');
+        }*/
+        else{
+        if(($active==1) && (($backorderStatus == '3' && ($_product->IsSalable())) || (($backorderStatus == '4') && (!$_product->IsSalable()) ) )){
+            if ($block->getPreorderButtonText() != '') {
+                $buttonTitle = __($block->getPreorderButtonText());
+            }else{
+                $buttonTitle = __('Pre Order');
+            }
+        }}  ?>
+        <div class="actions">
+            <button type="submit"
+                    title="<?php /* @escapeNotVerified */ echo $buttonTitle ?>"
+                    class="action primary tocart"
+                    id="product-addtocart-button">
+                <span><?php /* @escapeNotVerified */ echo $buttonTitle ?></span>
+            </button>
+            <?php echo $block->getChildHtml('', true) ?>
+        </div>
+    </div>
+</div>
+    <!-- Order Progress Bar -->
+    <?php if (($active==1) && $_product->getData('bid_target') >= 0 && $_product->getData('bid_end_date') >= date("Y-m-d")) {
+    $ordini=$_product->getData('bid_target')  ?>
+        <div class="product-item-link center-text" id="bid-time" style="text-align: center;"
+             href="<?php /* @escapeNotVerified */ echo $_product->getProductUrl() ?>">
+            <div class="swatch-option color" style="background-color: #eb6703;color: #FFFFFF;max-width: 100%;text-align: center;float: inherit;">
+                Scade tra: <strong id="bid-timer" data-bidend="<?=$_product->getData('bid_end_date')?>"></strong>
+            </div>
+        </div><br>
+        <div class="stock available">
+            <span><?=$ordini?> Oridini ragiunti</span>
+            <div><progress value="<?=$ordini?>" max="<?=(int)$productStock->getQty()?>" style="width: 100%"></progress></div>
+            <span>Mancano ancora <?=(int)$productStock->getQty()-$ordini?> oridini per raggiungere il quorum</span>
+        </div><br>
+    <?php } ?>
+<?php endif; ?>
+<script type="text/x-magento-init">
+    {
+        "#product_addtocart_form": {
+            "Magento_Catalog/product/view/validation": {
+                "radioCheckboxClosest": ".nested"
+            }
+        }
+    }
+</script>
+<?php if (!$block->isRedirectToCartEnabled()) : ?>
+<script type="text/x-magento-init">
+    {
+        "#product_addtocart_form": {
+            "catalogAddToCart": {
+                "bindSubmit": false
+            }
+        }
+    }
+</script>
+
+<?php endif; ?>
+<?php endif; ?>
+</script>
+    <script type="text/javascript">
+        function settimer(){
+            var prod = document.getElementById('bid-timer');
+            var end = new Date(prod.dataset.bidend);
+            var second = 1000;
+            var minute = second * 60;
+            var hour = minute * 60;
+            var day = hour * 24;
+            var now = new Date();
+            var remain = end - now;
+            if (remain < 0) {
+                clearInterval(timer);
+                // Qua deve scattare il trigger di fine bid
+                prod.innerHTML = 'Concluso!';
+                return;
+            }
+            var days = Math.floor(remain / day);
+            var hours = Math.floor((remain % day) / hour);
+            var minutes = Math.floor((remain % hour) / minute);
+            var seconds = Math.floor((remain % minute) / second);
+
+            document.getElementById('bid-timer').innerHTML =
+                days + ' G ' + hours + ' h ' + minutes + ' n ' + seconds + ' s';
+        }
+
+            timer = setInterval(settimer, 1000); // update every second
+
+    </script>
